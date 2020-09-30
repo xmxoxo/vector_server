@@ -312,6 +312,7 @@ def HttpServer (args):
             # 计算余弦值
             cos = CosSim_dot(vector[0], vector[1])
         except :
+            # 如果不存在要查的词，则报错
             cos = None
 
         # print(vector)
@@ -332,8 +333,11 @@ def HttpServer (args):
     接口：按索引号返回向量
     调用方式：POST
     调用地址：/api/v0.1/vector
-    参数： index 索引号
-    返回： vector 向量
+    参数： 
+        index 索引号
+        txt   文本
+    返回：
+        vector 向量
     '''
     @app.route('/api/v0.1/vector', methods=['POST'])
     def vector ():
@@ -346,14 +350,17 @@ def HttpServer (args):
             vector = vs.get_vector(index)
         except :
             vector = None
-        '''
-        if index:
-            if index.isdigit():
-                index = int(index)
-                vector = vs.get_vector(index)
-        '''
+        
+        txt = request.values.get('index')
+        try:
+            index = sentences.index(txt)
+            vector = vs.get_vector(index)
+        except :
+            pass 
+
         # 同时返回对应的文本内容
-        txt = sentences[index]
+        if txt=='':
+            txt = sentences[index]
 
         if vector is None:
             res["result"] = 'Error'            

@@ -58,7 +58,7 @@ def test_task (args):
     q = Q[0]
     #print('query:' , q)
     start = time.time()
-    D,I = vs.search(q, top=top_n, nprobe=10)
+    D, I, V = vs.search(q, top=top_n, nprobe=10)
     
     # 显示详细结果
     def showdetail (X,q,D,I):
@@ -81,7 +81,7 @@ def test_task (args):
     start = time.time()
     print('正在批量测试%d次，每次返回Top %d，请稍候...' % (test_times,top_n) )
     for i in range(test_times):
-        D,I = vs.search(Q[i])
+        D,I,V = vs.search(Q[i])
     end = time.time()
     total_time = (end - start)*1000
     print('总用时:%d毫秒, 平均用时:%4f毫秒' % (total_time, total_time/test_times) )
@@ -101,12 +101,12 @@ def test_task (args):
 
         # 查询
         start = time.time()
-        r = vs.search(q, top=top_n)
+        D, I, V = vs.search(q, top=top_n)
         print('查询结果:...')
-        print('相似度:%s \n索引号:%s' % r) 
+        print('相似度:%s \n索引号:%s' % (str(D),str(I)) )
         end = time.time()
         total_time = end - start
-        print('总用时:%d 秒, 平均用时:%4f 毫秒' % (total_time, total_time*1000) )
+        print('用时:%4f 毫秒' % (total_time*1000) )
 
 
 
@@ -130,6 +130,8 @@ if __name__ == '__main__':
     #################################################################################################
 
     parser = argparse.ArgumentParser(description= ('faiss向量搜索服务端测试 V-%s' % gblVersion) )
+    parser.add_argument('-gpu', default=-1, type=int, 
+        help='使用GPU,-1=不使用（默认），0=使用第1个，>0=使用全部')
     
     parser.add_argument('-test_total', default=100000, type=int, help='测试数据条数，默认10万')
     parser.add_argument('-test_dim', default=768, type=int, help='测试数据维度，默认768')
