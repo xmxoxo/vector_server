@@ -91,7 +91,7 @@ python test.py
 
 ## 使用案例: 腾讯词向量搜索服务
 
-源码地址： https://github.com/xmxoxo/Tencent_ChineseEmbedding_Process/upload
+源码地址： https://github.com/xmxoxo/Tencent_ChineseEmbedding_Process/
 
 
 
