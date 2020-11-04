@@ -177,27 +177,24 @@ class VecSearch:
         D, I, V = [],[],[]
 
         # 查找聚类中心的个数，默认为1个。
-        self.index.nprobe = nprobe #self.nlist 
-        '''
-        '''
+        self.index.nprobe = nprobe #self.nprobe 
+
         # 如果指定了索引号，则使用索引号指定的向量 2020/9/10
         if index:
             query = self.xb[index,:]
-            # 如果是单条查询，把向量处理成二维 
-            if len(query.shape)==1:
-                query = query[np.newaxis, :]
         else:
-            # 如果是单条查询，把向量处理成二维 
-            if len(query.shape)==1:
-                query = query[np.newaxis, :]
             if not query.dtype == 'float32':
                 query = query.astype('float32')
             #print(query.shape)
+
+            # 如果是单条查询，把向量处理成二维 
+            if len(query.shape)==1:
+                query = query[np.newaxis, :]
             
             # 向量归一化
             if self.normalize:
                 faiss.normalize_L2(query)
-        
+
         # print('q,n:', (query, top) )
         # 查询
         D, I = self.index.search(query, top)
@@ -338,29 +335,28 @@ def HttpServer (args):
         txt   文本
     返回：
         vector 向量
+    说明： 优先级： txt文本 > index 索引号
     '''
     @app.route('/api/v0.1/vector', methods=['POST'])
     def vector ():
         start = time.time()
         res = {}
         vector = None
-        index = request.values.get('index')
         try:
+            index = request.values.get('index')
             index = int(index)
+
+            txt = request.values.get('txt')
+            # 同时返回对应的文本内容
+            if not txt:
+                txt = sentences[index]
+            else:
+                index = sentences.index(txt)
+
             vector = vs.get_vector(index)
+
         except :
             vector = None
-        
-        txt = request.values.get('index')
-        try:
-            index = sentences.index(txt)
-            vector = vs.get_vector(index)
-        except :
-            pass 
-
-        # 同时返回对应的文本内容
-        if txt=='':
-            txt = sentences[index]
 
         if vector is None:
             res["result"] = 'Error'            
@@ -385,7 +381,7 @@ def HttpServer (args):
         s: 文本
     返回：
         values: [D,I] 其中D和I都是array，
-        样例： "values": "[[1.5547459e-16, 0.0006377562], [1, 15773]]"
+        样例： "values": "[[1.5547459e-16, 0.0006377562, ... ], [1, 15773, ... ]]"
         txt: 数据文件中对应的文本；
 
     说明：
@@ -401,11 +397,6 @@ def HttpServer (args):
     
         topn = request.values.get('n')
         
-        '''
-        if topn:
-            if topn.isnumeric():
-               top_n = int(topn)
-        '''
         # 处理top_n参数
         if topn:
             top_n = int(topn) if topn.isdigit() else 5
@@ -413,51 +404,50 @@ def HttpServer (args):
         vec = request.values.get('v')
         txt = request.values.get('s')
         
-        q,index = None, None
+        q, index = None, None
+        
         # 增加索引号查询 2020/9/10
         index = request.values.get('i')
-        
-        '''
-        if index:
-            index = int(index) if index.isdigit() else None
-            #q = vs.get_vector(index)
-        '''
         try:
             index = int(index)
         except :
             index = None
 
+
         # 处理参数逻辑: 如果没有指定index则处理vec
-        Err = 0
-        if index is None:
-            if not txt is None:
+        if not index:
+            if txt:
                 try:
                     index = sentences.index(txt)
                 except :
                     Err = 1
-            else:
-                if not vec is None:
+                    index = None
+                    res["result"] = "Error requests: can not find text"
+            if not index:
+                if vec:
                     # 把字符串转成 np.array
                     q = str2array(vec)
-                    # print('qury=', q)
-                    # logging.info ('查询向量: \n%s' % q)
-                    # 判断维度是否正确
-                    if q.shape[0]!= dim:
-                        logging.info ('Error Dimension: require=%d, post=%d' % (dim,q.shape[0]))
+                    logging.info ('查询向量维度大小: %s' % str(q.shape) )
+                    # 判断维度是否正确,注意可能是二维
+                    if q.shape[-1]!= dim:
+                        logging.info ('Error Dimension: require=%d, post=%d' % (dim,q.shape[-1]))
                         res["result"] = "Error Dimension"
                         return jsonify(res)
                 else:
-                    Err = 1
-        if Err:
-            res["result"] = "Error requests: can not find text"
+                    #res["result"] = "require parm"
+                    return jsonify(res)
+        if index:
+            q = vs.get_vector(index)
+
+        if not str(q):
+            res["result"] = "Error requests: require parm"
             return jsonify(res)
 
         # 查询并返回结果, 结果需要使用json.loads()转为list
         # 返回格式：[D,I,V]
         # 样例： "values": "[[1.5547459e-16, 0.0006377562], [1, 15773]]"
         # 增加了向量结果，可以选择输出；2020/9/7
-        D, I, V = vs.search(q, top=top_n, nprobe=top_n, index=index)
-        #value = [list(D[0]), list(I[0])]
+        D, I, V = vs.search(q, top=top_n, nprobe=top_n) #, index=index
         value = [D.tolist(), I.tolist()]
         
         # 增加输出原始文本 2020/9/10
@@ -506,7 +496,7 @@ if __name__ == '__main__':
     parser.add_argument('-metric', default='INNER_PRODUCT', choices=['L2','INNER_PRODUCT'], type=str, 
                     help='计算方法:L2=欧式距离；INNER_PRODUCT=向量内积(默认)')
     parser.add_argument('-debug', default=0, type=int, help='是否调试模式，默认=0')
-    parser.add_argument('--gpu', default=-1, type=int, 
+    parser.add_argument('-gpu', default=-1, type=int, 
         help='使用GPU,-1=不使用（默认），0=使用第1个，>0=使用全部')
 
     args = parser.parse_args()
