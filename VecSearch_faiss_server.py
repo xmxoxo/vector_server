@@ -153,7 +153,7 @@ class VecSearch:
             self.xb = vector.copy()
         else:
             prepos = self.xb.shape[0]
-            self.xb = np.vstack((self.xb,q))
+            self.xb = np.vstack((self.xb, vector))
         
         return (prepos, self.xb.shape[0]-1)
 
